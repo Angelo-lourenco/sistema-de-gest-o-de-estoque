@@ -11,7 +11,6 @@ class Posicao:
 
     def __init__(self, codigo_posicao):
         self._codigo_posicao = codigo_posicao
-        self._itens = []
 
     # FUNÇÕES DE MANIPULAÇÃO DE POSIÇÃO;
     @staticmethod
@@ -45,7 +44,8 @@ class Posicao:
         item_de_alocagem = Item(resultado_query[0], resultado_query[1])
 
         # Recebe o código da posição que o item será alocado;
-        codigo_posicao = input('Digite a posição que deseja alocar o item: ').strip().upper()
+        codigo_posicao = input('Digite a posição que deseja alocar o item.\n'
+                               ' Posição:  ').strip().upper()
 
         # Cria um objeto "Posicao" que será responsável por representar a posição que alocará o item;
         posicao_de_alocagem = Posicao(codigo_posicao)
@@ -53,7 +53,7 @@ class Posicao:
         # Verifica se a posição ja possui alguma quantidade deste item específico alocado nela;
         cur.execute(f'SELECT * FROM "{codigo_posicao}" WHERE codigo = "{item_de_alocagem.codigo_item}"; ')
 
-        # Caso possua algum item alocado;
+        # Caso possua o item alocado;
         if cur.fetchone():
 
             # Realiza a soma das quantidades no banco de dados no registro do item específico;
@@ -76,7 +76,6 @@ class Posicao:
             con.commit()
             con.close()
 
-
     @staticmethod
     def _localiza_item_():
 
@@ -87,21 +86,40 @@ class Posicao:
         cur.execute('SELECT name FROM sqlite_master WHERE type="table"; ')
         catalogo_posicoes = cur.fetchall()
 
-        # Crio uma lista a qual armazenará todas as tabelas (ou posições) do meu banco de dados;
-        resultados = []
+        # Crio uma lista a qual armazenará todas as tabelas (ou posições) do meu banco de dados que possuem o item buscado;
+        posicoes_com_o_item = []
 
         # Realizo um loop por todo o catálogo de posições;
         for posicao in catalogo_posicoes:
             nome_posicao = posicao[0]
             cur.execute(f'SELECT * FROM "{nome_posicao}" WHERE codigo = "{codigo_do_item}"; ')
-            posicoes_com_o_item = cur.fetchall()
-            if posicoes_com_o_item:
-                resultados.append((nome_posicao, posicoes_com_o_item))
+            infos_dos_itens = cur.fetchall()
+            if infos_dos_itens:
+                posicoes_com_o_item.append((nome_posicao, infos_dos_itens))
 
-        for nome_posicao, resultado in resultados:
-            print(f'Resultados da posição {nome_posicao}:')
-            for linha in resultado:
-                print(linha)
+        # Crio uma lista para armazenar todas as informações dos itens
+        itens_da_posicao = []
+
+        for nome_posicao, infos_dos_itens in posicoes_com_o_item:
+            for info_do_item in infos_dos_itens:
+                # Crie um novo dicionário para cada item
+                atributos_do_item = {'Código': info_do_item[0],
+                                     'Descrição': info_do_item[1],
+                                     'Quantidade': info_do_item[2]}
+                itens_da_posicao.append((nome_posicao, atributos_do_item))
+
+        # Exiba as informações no final
+        for nome_posicao, atributos_do_item in itens_da_posicao:
+            print(f'Localizado na posição {nome_posicao}: ')
+            print(f"Código: {atributos_do_item['Código']}\n"
+                  f"Descrição: {atributos_do_item['Descrição']}\n"
+                  f"Quantidade: {atributos_do_item['Quantidade']}\n"
+                  f"-------------------------------------------------")
+
+
+''' A classe "Item" somente opera suas funções no banco de dados "itens_de_cadastro". Sendo assim, qualquer atividade de 
+manipulação de itens, seja transferência, retirada ou exclusão ou localização de itens de uma posição, deve ser realizada através
+de funções da classe "Posicao" '''
 
 
 class Item:
@@ -111,18 +129,23 @@ class Item:
         self._descricao = descricao
         self.quantidade = 0
 
+    def __str__(self):
+        return(f'Código : {self._codigo_item}\n'
+               f'Descrição : {self._descricao}')
+
     # funções do banco de dados "Itens";
     @staticmethod
     def _cadastra_item_():
         codigo, descricao = (input('Digite o código do item a ser cadastrado no sistema.\n Código: ').strip().upper(),
-                             input('Digite a descrição so item a ser cadastrado no sistema.\n Descrição: ').strip().upper())
+                             input(
+                                 'Digite a descrição so item a ser cadastrado no sistema.\n Descrição: ').strip().upper())
 
         try:
             item_de_cadastro = Item(codigo, descricao)
             cur_1.execute(
                 f'INSERT INTO itens VALUES ("{item_de_cadastro._codigo_item}", "{item_de_cadastro._descricao}"); ')
             con_1.commit()
-            con.close()
+            con_1.close()
 
         except sqlite3.IntegrityError:
             print('Código ou descrição já cadastrado no sistema!')
@@ -146,6 +169,16 @@ class Item:
         except sqlite3.Error as e:
             print(f'Erro ao remover o registro {e}')
             Item._exclui_item_()
+
+
+    @staticmethod
+    def retorna_catalogo_de_itens():
+        cur_1.execute('SELECT * FROM itens')
+        catalogo = cur_1.fetchall()
+        for item in catalogo:
+            item_atual = Item(item[0], item[1])
+            print(f'{item_atual}\n'
+                  f'--------------------------------------')
 
     # Setters;
     @property
